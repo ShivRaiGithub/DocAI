@@ -8,8 +8,9 @@ from sqlalchemy.orm import Session
 from app.config import Settings, get_settings
 from app.db import get_db
 from app.models import Document, DocumentVersion, _now
+from app.chunking import chunk_pages
 from app.extraction import ExtractionError, extract_pages
-from app.schemas import DocumentInfo, ExtractedText
+from app.schemas import ChunkedDocument, DocumentInfo, ExtractedText
 from app.storage import FileStorage
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -106,23 +107,32 @@ def get_document(doc_id: str, db: DbDep) -> DocumentInfo:
     return to_info(get_or_404(db, doc_id))
 
 
+def pick_version(doc: Document, version: int | None) -> DocumentVersion:
+    """The requested version, or the latest when none is given."""
+    if version is None:
+        return doc.latest
+    chosen = next((v for v in doc.versions if v.version == version), None)
+    if chosen is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"Version {version} not found")
+    return chosen
+
+
+def extract_version(storage: FileStorage, chosen: DocumentVersion):
+    try:
+        data = storage.read(chosen.storage_path)
+        return extract_pages(data, Path(chosen.storage_path).suffix)
+    except ExtractionError as e:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(e)) from e
+
+
 @router.get("/{doc_id}/text", response_model=ExtractedText)
 def get_document_text(
     doc_id: str, db: DbDep, storage: StorageDep, version: int | None = None
 ) -> ExtractedText:
     """Extract and return the text of a document (latest version unless ?version=N)."""
     doc = get_or_404(db, doc_id)
-    if version is None:
-        chosen = doc.latest
-    else:
-        chosen = next((v for v in doc.versions if v.version == version), None)
-        if chosen is None:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, f"Version {version} not found")
-    ext = Path(chosen.storage_path).suffix
-    try:
-        pages = extract_pages(storage.read(chosen.storage_path), ext)
-    except ExtractionError as e:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(e)) from e
+    chosen = pick_version(doc, version)
+    pages = extract_version(storage, chosen)
     return ExtractedText(
         document_id=doc.id,
         version=chosen.version,
@@ -130,6 +140,36 @@ def get_document_text(
         page_count=len(pages),
         char_count=sum(len(p.text) for p in pages),
         pages=pages,
+    )
+
+
+@router.get("/{doc_id}/chunks", response_model=ChunkedDocument)
+def get_document_chunks(
+    doc_id: str,
+    db: DbDep,
+    storage: StorageDep,
+    settings: SettingsDep,
+    version: int | None = None,
+    chunk_size: int | None = None,
+    chunk_overlap: int | None = None,
+) -> ChunkedDocument:
+    """Split a document into overlapping chunks. Sizes default to the app settings."""
+    doc = get_or_404(db, doc_id)
+    chosen = pick_version(doc, version)
+    size = chunk_size or settings.chunk_size
+    overlap = settings.chunk_overlap if chunk_overlap is None else chunk_overlap
+    pages = extract_version(storage, chosen)
+    try:
+        chunks = chunk_pages(pages, size, overlap)
+    except ValueError as e:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(e)) from e
+    return ChunkedDocument(
+        document_id=doc.id,
+        version=chosen.version,
+        chunk_size=size,
+        chunk_overlap=overlap,
+        chunk_count=len(chunks),
+        chunks=chunks,
     )
 
 

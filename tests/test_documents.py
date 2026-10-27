@@ -107,3 +107,22 @@ def test_text_endpoint_returns_latest_and_specific_version(client):
 def test_text_endpoint_422_for_unreadable_file(client):
     doc = upload(client, "bad.pdf", b"not really a pdf", "application/pdf").json()
     assert client.get(f"/documents/{doc['id']}/text").status_code == 422
+
+
+def test_chunks_endpoint(client):
+    body = ("word " * 400).encode()
+    doc = upload(client, data=body).json()
+    r = client.get(f"/documents/{doc['id']}/chunks?chunk_size=200&chunk_overlap=40")
+    assert r.status_code == 200
+    out = r.json()
+    assert out["chunk_count"] == len(out["chunks"]) > 5
+    assert out["chunk_size"] == 200 and out["chunk_overlap"] == 40
+    assert all(len(c["text"]) <= 200 for c in out["chunks"])
+
+
+def test_chunks_endpoint_defaults_and_bad_params(client):
+    doc = upload(client, data=b"short note").json()
+    out = client.get(f"/documents/{doc['id']}/chunks").json()
+    assert out["chunk_size"] == 1000 and out["chunk_overlap"] == 200 and out["chunk_count"] == 1
+    assert client.get(f"/documents/{doc['id']}/chunks?chunk_size=10").status_code == 422
+    assert client.get("/documents/nope/chunks").status_code == 404

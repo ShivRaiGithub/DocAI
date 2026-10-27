@@ -16,6 +16,8 @@ class Settings(BaseSettings):
 
     data_dir: Path = Path("data")
     max_upload_mb: int = 20
+    chunk_size: int = 1000
+    chunk_overlap: int = 200
     allowed_extensions: frozenset[str] = frozenset({".pdf", ".txt", ".md"})
 
     @field_validator("database_url")

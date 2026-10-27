@@ -31,3 +31,20 @@ class ExtractedText(BaseModel):
     page_count: int
     char_count: int
     pages: list[ExtractedPage]
+
+
+class Chunk(BaseModel):
+    index: int
+    page: int
+    start: int
+    end: int
+    text: str
+
+
+class ChunkedDocument(BaseModel):
+    document_id: str
+    version: int
+    chunk_size: int
+    chunk_overlap: int
+    chunk_count: int
+    chunks: list[Chunk]
