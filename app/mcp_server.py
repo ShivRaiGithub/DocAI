@@ -27,6 +27,7 @@ from app.llm import _client_for as _llm_for
 from app.models import Document
 from app.schemas import AskResponse, DocumentInfo, DocumentText, SearchHit
 from app.storage import FileStorage
+from app.tracing import configure_tracing
 from app.vectorstore import VectorStore
 from app.vectorstore import _client_for as _qdrant_for
 
@@ -160,6 +161,7 @@ def create_server(svc: Services) -> MCPServer:
 
 
 def main() -> None:
+    configure_tracing(get_settings())
     server = create_server(build_services())
     if "--http" in sys.argv:
         server.run("streamable-http")

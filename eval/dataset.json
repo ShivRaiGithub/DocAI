@@ -1,0 +1,138 @@
+[
+  {
+    "id": "q01",
+    "question": "How many days do I have to return an item?",
+    "expected_source": "returns-policy.md",
+    "expected_facts": [
+      "30 days"
+    ]
+  },
+  {
+    "id": "q02",
+    "question": "How long until the money is back on my card?",
+    "expected_source": "returns-policy.md",
+    "expected_facts": [
+      "5 business days"
+    ]
+  },
+  {
+    "id": "q03",
+    "question": "I bought the wrong size, what now?",
+    "expected_source": "returns-policy.md",
+    "expected_facts": [
+      "30 days"
+    ]
+  },
+  {
+    "id": "q04",
+    "question": "Can I send back clearance items?",
+    "expected_source": "returns-policy.md",
+    "expected_facts": [
+      "final sale|cannot be returned|can't be returned|not"
+    ]
+  },
+  {
+    "id": "q05",
+    "question": "How much does express delivery cost?",
+    "expected_source": "shipping.md",
+    "expected_facts": [
+      "15"
+    ]
+  },
+  {
+    "id": "q06",
+    "question": "Is shipping free on a 120 dollar order?",
+    "expected_source": "shipping.md",
+    "expected_facts": [
+      "free"
+    ]
+  },
+  {
+    "id": "q07",
+    "question": "How long does international delivery take?",
+    "expected_source": "shipping.md",
+    "expected_facts": [
+      "7 to 14|7-14"
+    ]
+  },
+  {
+    "id": "q08",
+    "question": "How long must my password be?",
+    "expected_source": "security-handbook.md",
+    "expected_facts": [
+      "14"
+    ]
+  },
+  {
+    "id": "q09",
+    "question": "What should I do if my laptop gets stolen?",
+    "expected_source": "security-handbook.md",
+    "expected_facts": [
+      "1 hour|one hour"
+    ]
+  },
+  {
+    "id": "q10",
+    "question": "Do I need two-factor authentication?",
+    "expected_source": "security-handbook.md",
+    "expected_facts": [
+      "mandatory|required|yes"
+    ]
+  },
+  {
+    "id": "q11",
+    "question": "How many vacation days do new hires get?",
+    "expected_source": "onboarding.md",
+    "expected_facts": [
+      "20"
+    ]
+  },
+  {
+    "id": "q12",
+    "question": "What time do I start on my first day?",
+    "expected_source": "onboarding.md",
+    "expected_facts": [
+      "9"
+    ]
+  },
+  {
+    "id": "q13",
+    "question": "How long does the battery last?",
+    "expected_source": "product-faq.md",
+    "expected_facts": [
+      "12 hours"
+    ]
+  },
+  {
+    "id": "q14",
+    "question": "How long is the warranty?",
+    "expected_source": "product-faq.md",
+    "expected_facts": [
+      "2 year|two year"
+    ]
+  },
+  {
+    "id": "q15",
+    "question": "What is the capital of France?",
+    "expected_source": null,
+    "expected_facts": []
+  },
+  {
+    "id": "q16",
+    "question": "Do you accept bitcoin?",
+    "expected_source": null,
+    "expected_facts": []
+  },
+  {
+    "id": "q17",
+    "question": "Who is the CEO of Acme?",
+    "expected_source": null,
+    "expected_facts": []
+  },
+  {
+    "id": "q18",
+    "question": "What is the company dress code?",
+    "expected_source": null,
+    "expected_facts": []
+  }
+]

@@ -5,11 +5,14 @@ from fastapi import FastAPI
 from app.api import ask, documents, embeddings, health, search
 from app.config import get_settings
 from app.db import init_db
+from app.tracing import configure_tracing
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_db(get_settings().database_url)  # create tables on startup if missing
+    settings = get_settings()
+    configure_tracing(settings)
+    init_db(settings.database_url)  # create tables on startup if missing
     yield
 
 

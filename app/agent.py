@@ -9,6 +9,8 @@ This adds a bounded loop around it:
                                         repeating a query) -> give up honestly
 """
 
+from langsmith import traceable
+
 from app import services
 from app.config import Settings
 from app.embeddings import Embedder
@@ -18,6 +20,10 @@ from app.schemas import AgentAskResponse
 from app.vectorstore import VectorStore
 
 
+@traceable(
+    name="agent",
+    process_inputs=lambda i: {k: i.get(k) for k in ("question", "limit", "document_ids", "min_score")},
+)
 def run_agent(
     settings: Settings,
     embedder: Embedder,

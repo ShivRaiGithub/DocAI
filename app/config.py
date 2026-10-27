@@ -1,7 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import field_validator
+from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     rag_top_k: int = 5
     rag_min_score: float = 0.25
     agent_max_rewrites: int = 2
+
+    # LangSmith tracing is opt-in: it sends prompts and document text to LangSmith's servers.
+    langsmith_tracing: bool = False
+    langsmith_api_key: SecretStr | None = None
+    langsmith_project: str = "docai"
+    langsmith_hide_content: bool = False  # trace structure and timings, but not the text
     qdrant_url: str = "http://localhost:6333"
     qdrant_collection: str = "chunks"
     chunk_size: int = 800

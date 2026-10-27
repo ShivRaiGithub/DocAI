@@ -27,4 +27,7 @@ dev = [
 filterwarnings = [
     # Qdrant's in-memory test mode ignores payload indexes; the real server uses them.
     "ignore:Payload indexes have no effect:UserWarning",
+    # LangSmith's offline evaluation (used in tests/test_evaluation.py) is flagged beta
+    "ignore::langsmith._internal._beta_decorator.LangSmithBetaWarning",
+    "ignore:ast.Str is deprecated:DeprecationWarning",
 ]

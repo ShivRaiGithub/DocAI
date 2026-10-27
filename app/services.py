@@ -7,6 +7,7 @@ errors in its own way.
 
 from pathlib import Path
 
+from langsmith import traceable
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -52,6 +53,12 @@ def read_pages(storage: FileStorage, version: DocumentVersion) -> list[Extracted
     return extract_pages(data, Path(version.storage_path).suffix)
 
 
+@traceable(
+    name="semantic_search",
+    run_type="retriever",
+    # log only the meaningful arguments, not the embedder/vector-store objects
+    process_inputs=lambda i: {k: i.get(k) for k in ("query", "limit", "document_ids", "min_score")},
+)
 def semantic_search(
     embedder: Embedder,
     vectors: VectorStore,
@@ -64,6 +71,10 @@ def semantic_search(
     return vectors.search(query_vector, limit, document_ids, min_score)
 
 
+@traceable(
+    name="answer_question",
+    process_inputs=lambda i: {k: i.get(k) for k in ("question", "limit", "document_ids", "min_score")},
+)
 def answer_question(
     settings: Settings,
     embedder: Embedder,
@@ -86,6 +97,13 @@ def answer_question(
     return generate_answer(llm, question, hits)
 
 
+@traceable(
+    name="generate_answer",
+    process_inputs=lambda i: {
+        "question": i["question"],
+        "sources": [f"{h.filename} p{h.page} ({h.score:.2f})" for h in i["hits"]],
+    },
+)
 def generate_answer(llm: OllamaClient, question: str, hits: list[SearchHit]) -> AskResponse:
     """Have the LLM answer from the given chunks. With no chunks, skip the LLM entirely."""
     if not hits:
