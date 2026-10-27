@@ -17,3 +17,17 @@ class DocumentInfo(BaseModel):
     size_bytes: int
     created_at: datetime
     updated_at: datetime
+
+
+class ExtractedPage(BaseModel):
+    number: int
+    text: str
+
+
+class ExtractedText(BaseModel):
+    document_id: str
+    version: int
+    filename: str
+    page_count: int
+    char_count: int
+    pages: list[ExtractedPage]

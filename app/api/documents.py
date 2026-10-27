@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session
 from app.config import Settings, get_settings
 from app.db import get_db
 from app.models import Document, DocumentVersion, _now
-from app.schemas import DocumentInfo
+from app.extraction import ExtractionError, extract_pages
+from app.schemas import DocumentInfo, ExtractedText
 from app.storage import FileStorage
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -103,6 +104,33 @@ def list_documents(db: DbDep) -> list[DocumentInfo]:
 @router.get("/{doc_id}", response_model=DocumentInfo)
 def get_document(doc_id: str, db: DbDep) -> DocumentInfo:
     return to_info(get_or_404(db, doc_id))
+
+
+@router.get("/{doc_id}/text", response_model=ExtractedText)
+def get_document_text(
+    doc_id: str, db: DbDep, storage: StorageDep, version: int | None = None
+) -> ExtractedText:
+    """Extract and return the text of a document (latest version unless ?version=N)."""
+    doc = get_or_404(db, doc_id)
+    if version is None:
+        chosen = doc.latest
+    else:
+        chosen = next((v for v in doc.versions if v.version == version), None)
+        if chosen is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, f"Version {version} not found")
+    ext = Path(chosen.storage_path).suffix
+    try:
+        pages = extract_pages(storage.read(chosen.storage_path), ext)
+    except ExtractionError as e:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(e)) from e
+    return ExtractedText(
+        document_id=doc.id,
+        version=chosen.version,
+        filename=doc.filename,
+        page_count=len(pages),
+        char_count=sum(len(p.text) for p in pages),
+        pages=pages,
+    )
 
 
 @router.delete("/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)

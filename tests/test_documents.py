@@ -87,3 +87,23 @@ def test_path_traversal_filename_is_neutralised(client, tmp_path):
 def test_unknown_id_404(client):
     assert client.get("/documents/nope").status_code == 404
     assert client.delete("/documents/nope").status_code == 404
+
+
+def test_text_endpoint_returns_latest_and_specific_version(client):
+    doc = upload(client, data=b"first draft").json()
+    client.post(
+        f"/documents/{doc['id']}/versions",
+        files={"file": ("notes.txt", b"second draft", "text/plain")},
+    )
+    latest = client.get(f"/documents/{doc['id']}/text").json()
+    assert latest["version"] == 2 and latest["pages"][0]["text"] == "second draft"
+    assert latest["char_count"] == 12 and latest["page_count"] == 1
+
+    v1 = client.get(f"/documents/{doc['id']}/text?version=1").json()
+    assert v1["pages"][0]["text"] == "first draft"
+    assert client.get(f"/documents/{doc['id']}/text?version=9").status_code == 404
+
+
+def test_text_endpoint_422_for_unreadable_file(client):
+    doc = upload(client, "bad.pdf", b"not really a pdf", "application/pdf").json()
+    assert client.get(f"/documents/{doc['id']}/text").status_code == 422
