@@ -1,10 +1,16 @@
 from functools import lru_cache
-from typing import Annotated
+from typing import Annotated, Any, TypeVar
 
 import httpx
 from fastapi import Depends
+from langchain_core.exceptions import OutputParserException
+from langchain_ollama import ChatOllama
+from ollama import ResponseError
+from pydantic import BaseModel, ValidationError
 
 from app.config import Settings, get_settings
+
+T = TypeVar("T", bound=BaseModel)
 
 
 class LLMError(Exception):
@@ -12,37 +18,49 @@ class LLMError(Exception):
 
 
 class OllamaClient:
-    """Minimal client for a local Ollama server (https://ollama.com)."""
+    """Our small interface to the LLM, built on LangChain's ChatOllama.
 
-    def __init__(self, base_url: str, model: str, timeout_s: float):
+    The rest of the app only sees `chat()` and `structured()`, and `LLMError`.
+    """
+
+    def __init__(self, base_url: str, model: str, timeout_s: float, chat_model: Any = None):
         self.model = model
-        self._http = httpx.Client(base_url=base_url, timeout=timeout_s)
+        self.base_url = base_url
+        self._chat = chat_model or ChatOllama(
+            model=model,
+            base_url=base_url,
+            temperature=0.1,
+            # Qwen3-family models "think" before answering by default. That is slow and
+            # unnecessary when the answer must come from the supplied sources.
+            reasoning=False,
+            client_kwargs={"timeout": timeout_s},
+        )
 
     def chat(self, messages: list[dict[str, str]]) -> str:
+        """Plain-text reply to a list of {"role", "content"} messages."""
+        content = self._call(self._chat, messages).content
+        if not isinstance(content, str) or not content.strip():
+            raise LLMError("The model returned an empty answer")
+        return content.strip()
+
+    def structured(self, messages: list[dict[str, str]], schema: type[T]) -> T | None:
+        """Reply parsed into `schema` (a Pydantic model), or None if it isn't valid."""
         try:
-            response = self._http.post(
-                "/api/chat",
-                json={
-                    "model": self.model,
-                    "messages": messages,
-                    "stream": False,
-                    # Qwen3 models "think" before answering by default. That is slow and
-                    # unnecessary when the answer must come from the supplied sources.
-                    "think": False,
-                    "options": {"temperature": 0.1},
-                },
-            )
-            response.raise_for_status()
+            return self._call(self._chat.with_structured_output(schema), messages)
+        except (OutputParserException, ValidationError):
+            return None
+
+    def _call(self, runnable: Any, messages: list[dict[str, str]]) -> Any:
+        try:
+            return runnable.invoke(messages)
+        except (httpx.ConnectError, httpx.ConnectTimeout) as e:
+            raise LLMError(f"Could not reach Ollama at {self.base_url}") from e
         except httpx.TimeoutException as e:
             raise LLMError(f"Ollama timed out (model '{self.model}' may be too slow)") from e
-        except httpx.HTTPStatusError as e:
-            raise LLMError(f"Ollama returned {e.response.status_code}: {e.response.text[:200]}") from e
-        except httpx.HTTPError as e:
-            raise LLMError(f"Could not reach Ollama at {self._http.base_url}") from e
-        content = response.json().get("message", {}).get("content", "").strip()
-        if not content:
-            raise LLMError("The model returned an empty answer")
-        return content
+        except ResponseError as e:
+            raise LLMError(f"Ollama returned {e.status_code}: {e.error[:200]}") from e
+        except (httpx.HTTPError, ConnectionError) as e:
+            raise LLMError(f"Could not reach Ollama at {self.base_url}") from e
 
 
 @lru_cache

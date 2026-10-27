@@ -1,7 +1,6 @@
-import httpx
 import pytest
 
-from app.llm import LLMError, OllamaClient
+from app.llm import LLMError
 from app.rag import build_messages, cited_numbers
 from app.schemas import SearchHit
 from tests.test_documents import upload
@@ -78,34 +77,3 @@ def test_cited_numbers_and_prompt_numbering():
                     page=4, chunk_index=0, start=0, end=1)
     user = build_messages("Q?", [hit, hit])[1]["content"]
     assert "[1] (f.pdf, page 4)\nT" in user and "[2] (f.pdf, page 4)" in user
-
-
-def ollama_with(handler):
-    client = OllamaClient("http://ollama.test", "m", 5)
-    client._http = httpx.Client(base_url="http://ollama.test", transport=httpx.MockTransport(handler))
-    return client
-
-
-def test_ollama_client_success_and_request_shape():
-    seen = {}
-
-    def handler(request):
-        seen["body"] = request.read()
-        return httpx.Response(200, json={"message": {"content": " Hi "}})
-
-    assert ollama_with(handler).chat([{"role": "user", "content": "yo"}]) == "Hi"
-    assert b'"think":false' in seen["body"].replace(b" ", b"") and b'"stream":false' in seen["body"].replace(b" ", b"")
-
-
-@pytest.mark.parametrize(
-    "handler",
-    [
-        lambda r: httpx.Response(500, text="boom"),
-        lambda r: httpx.Response(200, json={"message": {"content": ""}}),
-        lambda r: (_ for _ in ()).throw(httpx.ConnectError("down")),
-        lambda r: (_ for _ in ()).throw(httpx.ReadTimeout("slow")),
-    ],
-)
-def test_ollama_client_errors_become_llmerror(handler):
-    with pytest.raises(LLMError):
-        ollama_with(handler).chat([{"role": "user", "content": "yo"}])

@@ -83,8 +83,13 @@ def answer_question(
         document_ids,
         min_score if min_score is not None else settings.rag_min_score,
     )
+    return generate_answer(llm, question, hits)
+
+
+def generate_answer(llm: OllamaClient, question: str, hits: list[SearchHit]) -> AskResponse:
+    """Have the LLM answer from the given chunks. With no chunks, skip the LLM entirely."""
     if not hits:
-        # Nothing relevant: skip the LLM entirely rather than risk a made-up answer.
+        # Nothing relevant: don't call the LLM rather than risk a made-up answer.
         return AskResponse(
             question=question, answer=NO_SOURCES_ANSWER, model=None, citations=[], sources=[]
         )

@@ -148,3 +148,8 @@ class DocumentText(BaseModel):
     pages_returned: list[int]
     truncated: bool
     text: str
+
+
+class AgentAskResponse(AskResponse):
+    search_queries: list[str]
+    steps: list[str]

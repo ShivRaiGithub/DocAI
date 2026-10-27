@@ -29,20 +29,28 @@ def vector_store():
 
 
 class FakeLLM:
-    """Records the prompt it was given and returns a canned answer."""
+    """Records the prompts it was given and returns canned replies."""
 
     model = "fake-model"
 
     def __init__(self):
         self.reply = "No reply set."
+        self.rewrites = []  # queued rewritten queries, used in order; empty -> invalid reply
         self.error = None
-        self.calls = []
+        self.calls = []  # prompts sent to chat()
+        self.structured_calls = []  # prompts sent to structured()
 
     def chat(self, messages):
         self.calls.append(messages)
         if self.error:
             raise self.error
         return self.reply
+
+    def structured(self, messages, schema):
+        self.structured_calls.append(messages)
+        if self.error:
+            raise self.error
+        return schema(query=self.rewrites.pop(0)) if self.rewrites else None
 
 
 @pytest.fixture

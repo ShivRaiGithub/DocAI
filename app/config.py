@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     llm_timeout_s: float = 300.0
     rag_top_k: int = 5
     rag_min_score: float = 0.25
+    agent_max_rewrites: int = 2
     qdrant_url: str = "http://localhost:6333"
     qdrant_collection: str = "chunks"
     chunk_size: int = 800
