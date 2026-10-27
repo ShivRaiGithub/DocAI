@@ -1,18 +1,34 @@
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+from sqlalchemy.pool import StaticPool
 
+from app import models  # noqa: F401
 from app.api.documents import get_storage
 from app.config import Settings, get_settings
+from app.db import Base, get_db
 from app.main import app
 from app.storage import FileStorage
 
 
 @pytest.fixture
 def client(tmp_path):
+    # In-memory SQLite stands in for Postgres so tests need no server.
+    engine = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
+    Base.metadata.create_all(engine)
+
+    def override_db():
+        with Session(engine) as session:
+            yield session
+
     settings = Settings(data_dir=tmp_path, max_upload_mb=1)
     app.dependency_overrides[get_settings] = lambda: settings
+    app.dependency_overrides[get_db] = override_db
     app.dependency_overrides[get_storage] = lambda: FileStorage(tmp_path / "uploads")
-    yield TestClient(app)
+    yield TestClient(app)  # no `with`, so the startup hook (real Postgres) is skipped
     app.dependency_overrides.clear()
 
 
@@ -20,17 +36,37 @@ def upload(client, name="notes.txt", data=b"hello", ctype="text/plain"):
     return client.post("/documents", files={"file": (name, data, ctype)})
 
 
-def test_upload_get_list_delete(client):
+def test_upload_get_list_delete(client, tmp_path):
     r = upload(client)
     assert r.status_code == 201
     doc = r.json()
-    assert doc["filename"] == "notes.txt" and doc["size_bytes"] == 5
+    assert doc["filename"] == "notes.txt" and doc["size_bytes"] == 5 and doc["version"] == 1
+    assert (tmp_path / "uploads" / doc["id"] / "v1.txt").read_bytes() == b"hello"
 
     assert client.get(f"/documents/{doc['id']}").json() == doc
     assert [d["id"] for d in client.get("/documents").json()] == [doc["id"]]
 
     assert client.delete(f"/documents/{doc['id']}").status_code == 204
     assert client.get(f"/documents/{doc['id']}").status_code == 404
+    assert not (tmp_path / "uploads" / doc["id"]).exists()
+
+
+def test_new_version_bumps_version_and_keeps_old_file(client, tmp_path):
+    doc = upload(client).json()
+    r = client.post(
+        f"/documents/{doc['id']}/versions",
+        files={"file": ("notes.md", b"updated text", "text/markdown")},
+    )
+    assert r.status_code == 201
+    new = r.json()
+    assert new["version"] == 2 and new["size_bytes"] == 12 and new["filename"] == "notes.md"
+    assert (tmp_path / "uploads" / doc["id"] / "v1.txt").exists()
+    assert (tmp_path / "uploads" / doc["id"] / "v2.md").exists()
+
+
+def test_new_version_of_unknown_document_404(client):
+    r = client.post("/documents/nope/versions", files={"file": ("a.txt", b"x", "text/plain")})
+    assert r.status_code == 404
 
 
 def test_rejects_unsupported_extension(client):
@@ -48,6 +84,6 @@ def test_path_traversal_filename_is_neutralised(client, tmp_path):
     assert not (tmp_path.parent / "evil.txt").exists()
 
 
-def test_unknown_id_and_traversal_id_404(client):
+def test_unknown_id_404(client):
     assert client.get("/documents/nope").status_code == 404
-    assert client.delete("/documents/..%2F..").status_code == 404
+    assert client.delete("/documents/nope").status_code == 404

@@ -1,6 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,9 +12,20 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
     debug: bool = False
 
+    database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/docai"
+
     data_dir: Path = Path("data")
     max_upload_mb: int = 20
     allowed_extensions: frozenset[str] = frozenset({".pdf", ".txt", ".md"})
+
+    @field_validator("database_url")
+    @classmethod
+    def use_psycopg_driver(cls, url: str) -> str:
+        """Accept the usual postgres:// and postgresql:// forms and pick our driver."""
+        for prefix in ("postgres://", "postgresql://"):
+            if url.startswith(prefix):
+                return "postgresql+psycopg://" + url[len(prefix):]
+        return url
 
     model_config = SettingsConfigDict(env_prefix="DOCAI_", env_file=".env")
 

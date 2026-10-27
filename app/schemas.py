@@ -13,5 +13,7 @@ class DocumentInfo(BaseModel):
     id: str
     filename: str
     content_type: str | None
+    version: int
     size_bytes: int
-    uploaded_at: datetime
+    created_at: datetime
+    updated_at: datetime
