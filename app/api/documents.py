@@ -9,9 +9,11 @@ from app.config import Settings, get_settings
 from app.db import get_db
 from app.models import Document, DocumentVersion, _now
 from app.chunking import chunk_pages
+from app.embeddings import EmbedderDep
 from app.extraction import ExtractionError, extract_pages
-from app.schemas import ChunkedDocument, DocumentInfo, ExtractedText
+from app.schemas import ChunkedDocument, DocumentInfo, ExtractedText, IndexResult, IndexStatus
 from app.storage import FileStorage
+from app.vectorstore import VectorStoreDep
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -173,9 +175,52 @@ def get_document_chunks(
     )
 
 
+@router.post("/{doc_id}/index", response_model=IndexResult)
+def index_document(
+    doc_id: str,
+    db: DbDep,
+    storage: StorageDep,
+    settings: SettingsDep,
+    embedder: EmbedderDep,
+    vectors: VectorStoreDep,
+    version: int | None = None,
+) -> IndexResult:
+    """Extract, chunk, embed and store a document's vectors (latest version by default).
+
+    Re-indexing replaces whatever was indexed for this document before.
+    """
+    doc = get_or_404(db, doc_id)
+    chosen = pick_version(doc, version)
+    pages = extract_version(storage, chosen)
+    chunks = chunk_pages(pages, settings.chunk_size, settings.chunk_overlap)
+    vecs = embedder.embed([c.text for c in chunks]) if chunks else []
+    count = vectors.replace_document(doc.id, chosen.version, doc.filename, chunks, vecs)
+    return IndexResult(
+        document_id=doc.id,
+        version=chosen.version,
+        chunks_indexed=count,
+        collection=vectors.collection,
+    )
+
+
+@router.get("/{doc_id}/index", response_model=IndexStatus)
+def index_status(doc_id: str, db: DbDep, vectors: VectorStoreDep) -> IndexStatus:
+    get_or_404(db, doc_id)
+    count = vectors.count(doc_id)
+    return IndexStatus(
+        document_id=doc_id,
+        indexed=count > 0,
+        chunk_count=count,
+        version=vectors.indexed_version(doc_id) if count else None,
+    )
+
+
 @router.delete("/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_document(doc_id: str, db: DbDep, storage: StorageDep) -> None:
+def delete_document(
+    doc_id: str, db: DbDep, storage: StorageDep, vectors: VectorStoreDep
+) -> None:
     doc = get_or_404(db, doc_id)
     db.delete(doc)
     db.commit()
     storage.delete_document(doc_id)
+    vectors.delete_document(doc_id)

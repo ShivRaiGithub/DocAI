@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     data_dir: Path = Path("data")
     max_upload_mb: int = 20
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    embedding_dimension: int = 384  # must match the model above
+    qdrant_url: str = "http://localhost:6333"
+    qdrant_collection: str = "chunks"
     chunk_size: int = 800
     chunk_overlap: int = 200
     allowed_extensions: frozenset[str] = frozenset({".pdf", ".txt", ".md"})

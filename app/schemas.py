@@ -71,3 +71,17 @@ class SimilarityRequest(BaseModel):
 class SimilarityResponse(BaseModel):
     model: str
     similarity: float
+
+
+class IndexResult(BaseModel):
+    document_id: str
+    version: int
+    chunks_indexed: int
+    collection: str
+
+
+class IndexStatus(BaseModel):
+    document_id: str
+    indexed: bool
+    chunk_count: int
+    version: int | None

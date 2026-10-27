@@ -8,6 +8,7 @@ dependencies = [
     "pydantic-settings>=2.16.1",
     "pypdf>=6.21.3",
     "python-multipart>=0.0.32",
+    "qdrant-client>=1.20.0",
     "sentence-transformers>=6.2.0",
     "sqlalchemy>=2.1.6",
     "uvicorn[standard]>=0.54.0",
@@ -17,4 +18,10 @@ dependencies = [
 dev = [
     "httpx>=0.28.1",
     "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    # Qdrant's in-memory test mode ignores payload indexes; the real server uses them.
+    "ignore:Payload indexes have no effect:UserWarning",
 ]

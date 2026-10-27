@@ -1,37 +1,3 @@
-import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
-from sqlalchemy.pool import StaticPool
-
-from app import models  # noqa: F401
-from app.api.documents import get_storage
-from app.config import Settings, get_settings
-from app.db import Base, get_db
-from app.main import app
-from app.storage import FileStorage
-
-
-@pytest.fixture
-def client(tmp_path):
-    # In-memory SQLite stands in for Postgres so tests need no server.
-    engine = create_engine(
-        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
-    )
-    Base.metadata.create_all(engine)
-
-    def override_db():
-        with Session(engine) as session:
-            yield session
-
-    settings = Settings(data_dir=tmp_path, max_upload_mb=1)
-    app.dependency_overrides[get_settings] = lambda: settings
-    app.dependency_overrides[get_db] = override_db
-    app.dependency_overrides[get_storage] = lambda: FileStorage(tmp_path / "uploads")
-    yield TestClient(app)  # no `with`, so the startup hook (real Postgres) is skipped
-    app.dependency_overrides.clear()
-
-
 def upload(client, name="notes.txt", data=b"hello", ctype="text/plain"):
     return client.post("/documents", files={"file": (name, data, ctype)})
 
