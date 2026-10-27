@@ -8,6 +8,7 @@ from qdrant_client.models import (
     Distance,
     FieldCondition,
     Filter,
+    MatchAny,
     MatchValue,
     PayloadSchemaType,
     PointStruct,
@@ -15,7 +16,7 @@ from qdrant_client.models import (
 )
 
 from app.config import Settings, get_settings
-from app.schemas import Chunk
+from app.schemas import Chunk, SearchHit
 
 # Fixed namespace so the same (document, version, chunk) always gets the same point id.
 _NAMESPACE = uuid.UUID("6f1c1c60-4d7e-4b8e-9d57-5b6d1a1e0d01")
@@ -84,6 +85,43 @@ class VectorStore:
     def delete_document(self, doc_id: str) -> None:
         self.ensure_collection()
         self.client.delete(self.collection, points_selector=_doc_filter(doc_id))
+
+    def search(
+        self,
+        vector: list[float],
+        limit: int,
+        document_ids: list[str] | None = None,
+        min_score: float | None = None,
+    ) -> list[SearchHit]:
+        """Nearest chunks to `vector`, best first, optionally limited to some documents."""
+        self.ensure_collection()
+        query_filter = None
+        if document_ids is not None:
+            query_filter = Filter(
+                must=[FieldCondition(key="document_id", match=MatchAny(any=document_ids))]
+            )
+        response = self.client.query_points(
+            self.collection,
+            query=vector,
+            limit=limit,
+            query_filter=query_filter,
+            score_threshold=min_score,
+            with_payload=True,
+        )
+        return [
+            SearchHit(
+                score=point.score,
+                text=point.payload["text"],
+                document_id=point.payload["document_id"],
+                filename=point.payload["filename"],
+                version=point.payload["version"],
+                page=point.payload["page"],
+                chunk_index=point.payload["chunk_index"],
+                start=point.payload["start"],
+                end=point.payload["end"],
+            )
+            for point in response.points
+        ]
 
     def count(self, doc_id: str) -> int:
         self.ensure_collection()

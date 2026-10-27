@@ -85,3 +85,31 @@ class IndexStatus(BaseModel):
     indexed: bool
     chunk_count: int
     version: int | None
+
+
+class SearchRequest(BaseModel):
+    query: str = Field(min_length=1, max_length=1000)
+    limit: int = Field(default=5, ge=1, le=20)
+    document_ids: list[str] | None = Field(
+        default=None, description="Only search inside these documents"
+    )
+    min_score: float | None = Field(
+        default=None, ge=-1, le=1, description="Drop results scoring below this"
+    )
+
+
+class SearchHit(BaseModel):
+    score: float
+    text: str
+    document_id: str
+    filename: str
+    version: int
+    page: int
+    chunk_index: int
+    start: int
+    end: int
+
+
+class SearchResponse(BaseModel):
+    query: str
+    results: list[SearchHit]
