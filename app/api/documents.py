@@ -2,16 +2,16 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.chunking import chunk_pages
 from app.config import Settings, get_settings
 from app.db import get_db
-from app.models import Document, DocumentVersion, _now
-from app.chunking import chunk_pages
 from app.embeddings import EmbedderDep
-from app.extraction import ExtractionError, extract_pages
+from app.extraction import ExtractionError
+from app.models import Document, DocumentVersion, _now
 from app.schemas import ChunkedDocument, DocumentInfo, ExtractedText, IndexResult, IndexStatus
+from app.services import find_version, list_documents, read_pages, to_info
 from app.storage import FileStorage
 from app.vectorstore import VectorStoreDep
 
@@ -25,19 +25,6 @@ def get_storage(settings: Annotated[Settings, Depends(get_settings)]) -> FileSto
 StorageDep = Annotated[FileStorage, Depends(get_storage)]
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 DbDep = Annotated[Session, Depends(get_db)]
-
-
-def to_info(doc: Document) -> DocumentInfo:
-    latest = doc.latest
-    return DocumentInfo(
-        id=doc.id,
-        filename=doc.filename,
-        content_type=doc.content_type,
-        version=latest.version,
-        size_bytes=latest.size_bytes,
-        created_at=doc.created_at,
-        updated_at=doc.updated_at,
-    )
 
 
 async def read_valid_upload(file: UploadFile, settings: Settings) -> tuple[str, str, bytes]:
@@ -99,9 +86,8 @@ async def upload_new_version(
 
 
 @router.get("", response_model=list[DocumentInfo])
-def list_documents(db: DbDep) -> list[DocumentInfo]:
-    docs = db.scalars(select(Document).order_by(Document.created_at.desc())).all()
-    return [to_info(d) for d in docs]
+def list_all_documents(db: DbDep) -> list[DocumentInfo]:
+    return list_documents(db)
 
 
 @router.get("/{doc_id}", response_model=DocumentInfo)
@@ -111,9 +97,7 @@ def get_document(doc_id: str, db: DbDep) -> DocumentInfo:
 
 def pick_version(doc: Document, version: int | None) -> DocumentVersion:
     """The requested version, or the latest when none is given."""
-    if version is None:
-        return doc.latest
-    chosen = next((v for v in doc.versions if v.version == version), None)
+    chosen = find_version(doc, version)
     if chosen is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"Version {version} not found")
     return chosen
@@ -121,8 +105,7 @@ def pick_version(doc: Document, version: int | None) -> DocumentVersion:
 
 def extract_version(storage: FileStorage, chosen: DocumentVersion):
     try:
-        data = storage.read(chosen.storage_path)
-        return extract_pages(data, Path(chosen.storage_path).suffix)
+        return read_pages(storage, chosen)
     except ExtractionError as e:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(e)) from e
 

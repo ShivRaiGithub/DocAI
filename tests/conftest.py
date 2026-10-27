@@ -51,13 +51,17 @@ def llm():
 
 
 @pytest.fixture
-def client(tmp_path, embedder, vector_store, llm):
+def engine():
     # In-memory SQLite stands in for Postgres so tests need no servers.
     engine = create_engine(
         "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
     )
     Base.metadata.create_all(engine)
+    return engine
 
+
+@pytest.fixture
+def client(tmp_path, engine, embedder, vector_store, llm):
     def override_db():
         with Session(engine) as session:
             yield session

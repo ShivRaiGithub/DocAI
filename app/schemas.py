@@ -138,3 +138,13 @@ class AskResponse(BaseModel):
     model: str | None
     citations: list[Citation]
     sources: list[Citation]
+
+
+class DocumentText(BaseModel):
+    document_id: str
+    filename: str
+    version: int
+    page_count: int
+    pages_returned: list[int]
+    truncated: bool
+    text: str
