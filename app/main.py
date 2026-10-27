@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api import documents, embeddings, health, search
+from app.api import ask, documents, embeddings, health, search
 from app.config import get_settings
 from app.db import init_db
 
@@ -20,6 +20,7 @@ def create_app() -> FastAPI:
     app.include_router(documents.router)
     app.include_router(embeddings.router)
     app.include_router(search.router)
+    app.include_router(ask.router)
     return app
 
 

@@ -113,3 +113,28 @@ class SearchHit(BaseModel):
 class SearchResponse(BaseModel):
     query: str
     results: list[SearchHit]
+
+
+class AskRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=2000)
+    limit: int | None = Field(default=None, ge=1, le=20, description="Chunks to retrieve")
+    document_ids: list[str] | None = None
+    min_score: float | None = Field(default=None, ge=-1, le=1)
+
+
+class Citation(BaseModel):
+    number: int
+    document_id: str
+    filename: str
+    version: int
+    page: int
+    score: float
+    text: str
+
+
+class AskResponse(BaseModel):
+    question: str
+    answer: str
+    model: str | None
+    citations: list[Citation]
+    sources: list[Citation]

@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     max_upload_mb: int = 20
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     embedding_dimension: int = 384  # must match the model above
+    ollama_url: str = "http://localhost:11434"
+    llm_model: str = "qwen3.5:9b"
+    llm_timeout_s: float = 300.0
+    rag_top_k: int = 5
+    rag_min_score: float = 0.25
     qdrant_url: str = "http://localhost:6333"
     qdrant_collection: str = "chunks"
     chunk_size: int = 800

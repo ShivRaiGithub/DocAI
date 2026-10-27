@@ -10,6 +10,7 @@ from app.api.documents import get_storage
 from app.config import Settings, get_settings
 from app.db import Base, get_db
 from app.embeddings import Embedder, get_embedder
+from app.llm import get_llm
 from app.main import app
 from app.storage import FileStorage
 from app.vectorstore import VectorStore, get_vector_store
@@ -27,8 +28,30 @@ def vector_store():
     return VectorStore(QdrantClient(":memory:"), "test_chunks", 384)
 
 
+class FakeLLM:
+    """Records the prompt it was given and returns a canned answer."""
+
+    model = "fake-model"
+
+    def __init__(self):
+        self.reply = "No reply set."
+        self.error = None
+        self.calls = []
+
+    def chat(self, messages):
+        self.calls.append(messages)
+        if self.error:
+            raise self.error
+        return self.reply
+
+
 @pytest.fixture
-def client(tmp_path, embedder, vector_store):
+def llm():
+    return FakeLLM()
+
+
+@pytest.fixture
+def client(tmp_path, embedder, vector_store, llm):
     # In-memory SQLite stands in for Postgres so tests need no servers.
     engine = create_engine(
         "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
@@ -45,5 +68,6 @@ def client(tmp_path, embedder, vector_store):
     app.dependency_overrides[get_storage] = lambda: FileStorage(tmp_path / "uploads")
     app.dependency_overrides[get_embedder] = lambda: embedder
     app.dependency_overrides[get_vector_store] = lambda: vector_store
+    app.dependency_overrides[get_llm] = lambda: llm
     yield TestClient(app)  # no `with`, so the startup hook (real Postgres) is skipped
     app.dependency_overrides.clear()
