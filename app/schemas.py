@@ -1,6 +1,7 @@
 from datetime import datetime
+from typing import Annotated
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, StringConstraints
 
 
 class HealthResponse(BaseModel):
@@ -48,3 +49,25 @@ class ChunkedDocument(BaseModel):
     chunk_overlap: int
     chunk_count: int
     chunks: list[Chunk]
+
+
+class EmbedRequest(BaseModel):
+    texts: list[Annotated[str, StringConstraints(min_length=1)]] = Field(
+        min_length=1, max_length=64
+    )
+
+
+class EmbedResponse(BaseModel):
+    model: str
+    dimension: int
+    embeddings: list[list[float]]
+
+
+class SimilarityRequest(BaseModel):
+    a: str = Field(min_length=1)
+    b: str = Field(min_length=1)
+
+
+class SimilarityResponse(BaseModel):
+    model: str
+    similarity: float

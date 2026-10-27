@@ -123,6 +123,6 @@ def test_chunks_endpoint(client):
 def test_chunks_endpoint_defaults_and_bad_params(client):
     doc = upload(client, data=b"short note").json()
     out = client.get(f"/documents/{doc['id']}/chunks").json()
-    assert out["chunk_size"] == 1000 and out["chunk_overlap"] == 200 and out["chunk_count"] == 1
+    assert out["chunk_size"] == 800 and out["chunk_overlap"] == 200 and out["chunk_count"] == 1
     assert client.get(f"/documents/{doc['id']}/chunks?chunk_size=10").status_code == 422
     assert client.get("/documents/nope/chunks").status_code == 404

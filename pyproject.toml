@@ -8,6 +8,7 @@ dependencies = [
     "pydantic-settings>=2.16.1",
     "pypdf>=6.21.3",
     "python-multipart>=0.0.32",
+    "sentence-transformers>=6.2.0",
     "sqlalchemy>=2.1.6",
     "uvicorn[standard]>=0.54.0",
 ]
