@@ -1,0 +1,9 @@
+[browser]
+gatherUsageStats = false   # no telemetry: this app is meant to stay on your machine
+
+[server]
+headless = true
+maxUploadSize = 20         # MB. Keep in step with DOCAI_MAX_UPLOAD_MB on the API (default 20)
+
+[client]
+toolbarMode = "minimal"    # hides the "Deploy" button, which does not apply here

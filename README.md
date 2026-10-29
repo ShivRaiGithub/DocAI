@@ -12,6 +12,7 @@ It runs entirely on your machine: local embeddings, a local LLM through Ollama, 
 - **Semantic search:** find passages by meaning, not keywords ("money back" finds the refund policy). Results carry filename, page and score.
 - **Grounded answers (RAG):** a local LLM answers only from the retrieved passages, with `[1]`-style citations, and says it doesn't know when the documents don't contain the answer.
 - **Agentic retrieval:** if the first search finds nothing relevant, the query is rewritten by the LLM and retried (bounded, never repeating a query).
+- **Web interface:** a Streamlit app to upload and manage documents, chat with them (with sources and the agent's steps shown), and run searches.
 - **MCP server:** `search_documents`, `ask_documents`, `list_documents` and `get_document_text` tools for any MCP client.
 - **Tracing and evaluation:** optional LangSmith tracing, and a built-in evaluation suite that scores retrieval and answer quality.
 
@@ -20,10 +21,12 @@ It runs entirely on your machine: local embeddings, a local LLM through Ollama, 
 ```mermaid
 flowchart LR
     subgraph Clients
+        W[Streamlit web UI]
         U[HTTP clients]
         A[AI assistants<br/>Claude Code, etc.]
     end
-    U --> API[FastAPI]
+    W --> API[FastAPI]
+    U --> API
     A --> MCP[MCP server]
     API --> S[services.py<br/>shared logic]
     MCP --> S
@@ -50,6 +53,7 @@ Answering: `question -> embed -> nearest chunks above a score cutoff -> LLM with
 | Embeddings | sentence-transformers, `all-MiniLM-L6-v2` (local, uses the GPU if present) |
 | LLM | Ollama through LangChain's `ChatOllama` (default `qwen3.5:9b`) |
 | Extraction | pypdf |
+| Web interface | Streamlit (a client of the REST API) |
 | Assistant integration | Official MCP Python SDK (`mcp` 2.x) |
 | Observability, evaluation | LangSmith (optional) |
 | Tests | pytest |
@@ -88,6 +92,16 @@ curl -X POST localhost:8000/ask -H 'content-type: application/json' \
 curl -X POST localhost:8000/ask/agent -H 'content-type: application/json' \
      -d '{"question": "I bought the wrong size, what now?"}'
 ```
+
+## Web interface
+
+```bash
+uv run streamlit run frontend/app.py       # http://localhost:8501 (the API must be running)
+```
+
+Three pages: **Ask** (chat with your documents; each answer has expandable sources and, in agent mode, the steps taken), **Search** (ranked passages with relevance bars, no LLM involved) and **Documents** (upload several files at once, index, upload new versions, view extracted text, delete). It talks to the REST API only, so it can run on a different machine: set the API address in the sidebar or with `DOCAI_API_URL`. The upload limit shown in the UI is set in `.streamlit/config.toml` (`maxUploadSize`, in MB) and should match `DOCAI_MAX_UPLOAD_MB`.
+
+Chat history is for display only: each question is answered on its own.
 
 ## API
 
@@ -171,7 +185,7 @@ The one miss for plain `/ask` is a question phrased unlike the document ("I boug
 ## Development
 
 ```bash
-uv run pytest                    # 85 tests; no running services needed (the embedding model downloads on first run)
+uv run pytest                    # 103 tests; no running services needed (the embedding model downloads on first run)
 ```
 
 The tests use in-memory SQLite and in-memory Qdrant, a fake LLM, and the real embedding model.
@@ -186,11 +200,13 @@ app/
   llm.py, rag.py, agent.py         Ollama client, prompts and citations, retry loop
   mcp_server.py                    MCP tools
   tracing.py, evaluation.py        LangSmith switch, evaluation CLI
+frontend/                          Streamlit app: app.py, API client, views/
 eval/                              evaluation corpus and questions
+.streamlit/config.toml             Streamlit settings (upload limit, no telemetry)
 tests/
 docker-compose.yml                 Qdrant
 ```
 
 ## Limitations
 
-Not built yet: per-user permissions and authentication, automatic indexing on upload, hybrid keyword and semantic search, conversation memory, OCR for scanned PDFs, and database migrations (tables are created on startup). The embedding model is English-only and reads at most 256 tokens per chunk. Answers come from a small local model and can be wrong, which is why every answer carries citations to check against.
+Not built yet: per-user permissions and authentication (the web UI has no login and shows every document), streamed answers, automatic indexing on upload, hybrid keyword and semantic search, conversation memory, OCR for scanned PDFs, and database migrations (tables are created on startup). The embedding model is English-only and reads at most 256 tokens per chunk. Answers come from a small local model and can be wrong, which is why every answer carries citations to check against.
