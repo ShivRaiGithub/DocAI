@@ -101,18 +101,19 @@ def clean_env(monkeypatch):
 
 def test_configure_tracing_is_off_by_default_and_overrides_stray_env(clean_env, monkeypatch):
     monkeypatch.setenv("LANGSMITH_TRACING", "true")  # e.g. left over in the user's shell
-    assert configure_tracing(Settings()) is False
+    assert configure_tracing(Settings(_env_file=None)) is False
     assert os.environ["LANGSMITH_TRACING"] == "false"
 
 
 def test_configure_tracing_needs_both_the_flag_and_a_key(clean_env):
-    assert configure_tracing(Settings(langsmith_tracing=True)) is False
-    assert configure_tracing(Settings(langsmith_api_key=SecretStr("k"))) is False
+    assert configure_tracing(Settings(_env_file=None, langsmith_tracing=True)) is False
+    assert configure_tracing(Settings(_env_file=None, langsmith_api_key=SecretStr("k"))) is False
     assert "LANGSMITH_API_KEY" not in os.environ
 
 
 def test_configure_tracing_exports_settings_when_enabled(clean_env):
     settings = Settings(
+        _env_file=None,
         langsmith_tracing=True, langsmith_api_key=SecretStr("secret"),
         langsmith_project="my-project", langsmith_hide_content=True,
     )

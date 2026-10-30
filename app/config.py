@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     langsmith_tracing: bool = False
     langsmith_api_key: SecretStr | None = None
     langsmith_project: str = "docai"
+    langsmith_endpoint: str = "https://api.smith.langchain.com"  # EU accounts use eu.api.smith.langchain.com
     langsmith_hide_content: bool = False  # trace structure and timings, but not the text
     qdrant_url: str = "http://localhost:6333"
     qdrant_collection: str = "chunks"
